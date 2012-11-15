@@ -4,7 +4,8 @@ packages = [
   'embedded',
   'embedded.messages',
   'embedded.messages.transports',
-  'embedded.xbee'
+  'embedded.xbee',
+  'embedded.utils'
 ]
 
 requires = [
