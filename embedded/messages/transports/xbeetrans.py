@@ -21,16 +21,19 @@ class XBeeTransport(Transport):
   def __init__(self, port='/dev/ttyUSB0', baudrate=9600, channel='\x0C'):
     self.serial = serial.Serial(port, baudrate)
     self.xbee = XBee(self.serial, escaped=True)
-    self.config = XBeeAPIConfig(self.xbee)
-    self.default_xbee(baudrate, channel)
     self._stop = False
     self._queue = Queue.Queue()
+    self._send_queue = Queue.Queue()
+    self._receive_thread = None
+    self.channel = channel
+    self.config = XBeeAPIConfig(self)
     self._receive_thread = threading.Thread(name="", target=self._receive)
     self._receive_thread.start()
+    self.default_xbee(self.serial.getBaudrate(), self.channel)
 
   def default_xbee(self, baudrate, channel):
     """Set default XBee settings for the tiles"""
-    self.config.find_baudrate(set=True)
+    #self.config.find_baudrate(set=True)
     sleep(0.01)
     self.config.set_baudrate(baudrate)
     self.config.set_channel(channel)
@@ -39,17 +42,26 @@ class XBeeTransport(Transport):
         raise Exception("Failed to set XBee settings for key %s!" % key)
       sleep(0.01)
 
-  def send(self, data, dest='\x00\x00\x00\x00\x00\x00\xFF\xFF'):
-    self.xbee.send("tx_long_addr", data=data, dest_addr=dest)
+  def send(self, data):
+    self._send_queue.put(data)
+    #self.xbee.send("tx_long_addr", data=data, dest_addr=dest)
  
+  def _send(self, data, dest='\x00\x00\x00\x00\x00\x00\xFF\xFF'):
+    if type(data) is dict:
+      self.xbee.send(**data)
+    else:
+      self.xbee.send("tx_long_addr", data=data, dest_addr=dest)
+
   def _receive(self):
     while True:
       if self._stop:
         break
+
+      if not self._send_queue.empty():
+        self._send(self._send_queue.get())
+      sleep(0.001)
       if self.serial.inWaiting() > 0:
         self._queue.put(self.xbee.wait_read_frame())
-      else:
-        sleep(0.001)
 
   def receive(self):
     if self._queue.empty():

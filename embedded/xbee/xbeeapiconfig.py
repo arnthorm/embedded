@@ -29,8 +29,9 @@ CONF_TO_READ = ('ID', 'CH', 'DH', 'DL', 'MY', 'AP', 'VR', 'BD')
 
 class XBeeAPIConfig:
 
-  def __init__(self, xbee):
-    self.xbee = xbee
+  def __init__(self, transport):
+    self.xbee = transport.xbee
+    self.transport = transport
     self._cur_channel = None
 
   def set_baudrate(self, value):
@@ -55,9 +56,9 @@ class XBeeAPIConfig:
 
   def _set_param(self, param, value=None, wait=True):
     if value is not None:
-      self.xbee.send('at', frame_id='A', command=param, parameter=value)
+      self.transport.send({'cmd': 'at', 'frame_id':'A', 'command':param, 'parameter':value})
     else:
-      self.xbee.send('at', frame_id='A', command=param)
+      self.transport.send({'cmd': 'at', 'frame_id':'A', 'command':param})
     return self.read_timeout(timeout=0.1)
     #return self.xbee.wait_read_frame(timeout=0.1)
 
@@ -77,7 +78,7 @@ class XBeeAPIConfig:
     for baud in l:
       self.xbee.serial.setBaudrate(baud)
       sleep(0.01)
-      self.xbee.send('at', frame_id='A', command='BD')
+      self.transport.send({'cmd': 'at', 'frame_id':'A', 'command':'BD'})
       sleep(0.01)
       #result = self.xbee.wait_read_frame(timeout=0.1)
       result = self.read_timeout(timeout=0.1)
@@ -94,6 +95,7 @@ class XBeeAPIConfig:
       print '%s: %s' % (CONF_PARAM.get(param, param), get_hex(value))
 
   def read_timeout(self, timeout=1):
+    return self.transport.receive()
     limit = now() + datetime.timedelta(0, timeout)
     while True:
       if self.xbee.serial.inWaiting() == 0:
