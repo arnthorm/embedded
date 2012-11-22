@@ -25,12 +25,15 @@ def get_usb():
   """
   import os
   dev_path = '/dev'
-  devs = os.listdir(dev_path)
+  try:
+    devs = os.listdir(dev_path)
+  except:
+    return None
   for dev in devs:
     if dev.startswith('ttyUSB') or dev.startswith('ttyACM0'):
       return os.path.join(dev_path, dev)
   else:
-    raise ValueError('No usb device was found!')
+    return None
 
 def get_hex(arr):
   r_value = []

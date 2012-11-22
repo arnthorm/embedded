@@ -1,5 +1,5 @@
 # -*- coding:utf-8 -*-
-from embedded.messages.transports.transport import Transport
+from embedded.messages.transports.transport import ThreadedTransport
 from embedded.xbee.xbeeapiconfig import XBeeAPIConfig
 import serial
 from xbee import XBee
@@ -16,65 +16,45 @@ DEFAULT_XBEE_SETTINGS = {
   'AP': '\x02',
 }
 
-class XBeeTransport(Transport):
+class XBeeTransport(ThreadedTransport):
   
   def __init__(self, port='/dev/ttyUSB0', baudrate=9600, channel='\x0C'):
     self.serial = serial.Serial(port, baudrate)
     self.xbee = XBee(self.serial, escaped=True)
-    self._stop = False
-    self._queue = Queue.Queue()
-    self._send_queue = Queue.Queue()
-    self._receive_thread = None
     self.channel = channel
-    self.config = XBeeAPIConfig(self)
-    self._receive_thread = threading.Thread(name="", target=self._receive)
-    self._receive_thread.start()
-    self.default_xbee(self.serial.getBaudrate(), self.channel)
 
-  def default_xbee(self, baudrate, channel):
+    self.config = XBeeAPIConfig(xbee=self.xbee)
+    self.default_xbee(self.channel)
+    self.config.transport = self
+
+    super(XBeeTransport, self).__init__()
+
+  def default_xbee(self, channel):
     """Set default XBee settings for the tiles"""
-    #self.config.find_baudrate(set=True)
-    sleep(0.01)
-    self.config.set_baudrate(baudrate)
+    self.config.adjust_baudrate()
     self.config.set_channel(channel)
     for key in DEFAULT_XBEE_SETTINGS:
       if not self.config.set_param(key, DEFAULT_XBEE_SETTINGS[key]):
         raise Exception("Failed to set XBee settings for key %s!" % key)
       sleep(0.01)
 
-  def send(self, data):
-    self._send_queue.put(data)
-    #self.xbee.send("tx_long_addr", data=data, dest_addr=dest)
- 
-  def _send(self, data, dest='\x00\x00\x00\x00\x00\x00\xFF\xFF'):
+  def _send(self, data):
     if type(data) is dict:
       self.xbee.send(**data)
     else:
-      self.xbee.send("tx_long_addr", data=data, dest_addr=dest)
+      self.xbee.send("tx_long_addr", data=data, dest_addr='\x00\x00\x00\x00\x00\x00\xFF\xFF')
 
   def _receive(self):
-    while True:
-      if self._stop:
-        break
-
-      if not self._send_queue.empty():
-        self._send(self._send_queue.get())
-      sleep(0.001)
-      if self.serial.inWaiting() > 0:
-        self._queue.put(self.xbee.wait_read_frame())
-
-  def receive(self):
-    if self._queue.empty():
-      return None
-    data = self._queue.get()
-    if data.has_key('rf_data'):
-      return data['rf_data']
+    if self.serial.inWaiting() > 0:
+      data = self.xbee.wait_read_frame()
+      if type(data) is dict and data.has_key('rf_data'):
+        data['data'] = data['rf_data']
+      return data
     else:
       return None
 
   def stop(self):
-    self._stop = True
-    self._receive_thread.join()
+    super(XBeeTransport, self).stop()
     self.serial.close()
 
 if __name__ == '__main__':

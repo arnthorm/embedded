@@ -31,8 +31,8 @@ class MessageManager(object):
     transport and publishes to subscripers.
     """
     response = self.transport.receive()
-    while response is not None:
-      self._process_response(response)
+    while type(response) is dict and response.has_key('data'):
+      self._process_response(response['data'])
       response = self.transport.receive()
 
   def send(self, msg_type, **kwargs):
