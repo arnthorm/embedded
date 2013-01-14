@@ -19,20 +19,26 @@ def enum(*sequential, **named):
   enums = dict(zip(sequential, range(len(sequential))), **named)
   return type('Enum', (), enums)
 
-def get_usb():
+def get_usb(id_info=None):
   """
-    Get the first usb port (only in linux) in the /dev/ttyUSB*
+    Get the serial port for any device:
+    id_info = 'VID:PID=0403:6001'
   """
   import os
-  dev_path = '/dev'
+  from serial.tools import list_ports
+
   try:
-    devs = os.listdir(dev_path)
+
+    if id_info is '': # Empty string should return None
+      return None
+
+    for ports in list_ports.comports():
+      if id_info in ports[2]:
+        return ports[0]
+    else:
+      return None
+
   except:
-    return None
-  for dev in devs:
-    if dev.startswith('ttyUSB') or dev.startswith('ttyACM0'):
-      return os.path.join(dev_path, dev)
-  else:
     return None
 
 def get_hex(arr):
@@ -59,4 +65,3 @@ def print_hex(arr, new_line=True):
     print '%s (%s)' % (h, ord(value)),
   if new_line:
     print ''
-
