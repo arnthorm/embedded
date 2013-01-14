@@ -30,8 +30,9 @@ def get_usb(vendor_id=None, product_id=None):
   from serial.tools import list_ports
 
   if vendor_id is None and product_id is None:
-    for ports in sorted(list_ports.comports(), key=operator.itemgetter(1))
-      if 'USB' in ports[1] or 'ACM0' in ports[1] or 'COM' in ports[0]:
+    import operator
+    for ports in sorted(list_ports.comports(), key=operator.itemgetter(1)):
+      if 'USB' in ports[0] or 'ACM0' in ports[0] or 'COM' in ports[0]:
         return ports[0]
   elif vendor_id is not None and product_id is not None:
     for ports in list_ports.comports():

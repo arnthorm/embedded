@@ -25,6 +25,8 @@ class SerialTransport(ThreadedTransport):
   wraps with a frame.
   """
   def __init__(self, port='/dev/ttyUSB0', baud=57600):
+    if port is None:
+      raise ValueError('No serial port supplied to transport!')
     self.serial = serial.Serial(port, baud)
     self.buffer = ''
     super(SerialTransport, self).__init__()
