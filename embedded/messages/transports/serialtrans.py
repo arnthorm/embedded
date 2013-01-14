@@ -26,6 +26,7 @@ class SerialTransport(ThreadedTransport):
   """
   def __init__(self, port='/dev/ttyUSB0', baud=57600):
     self.serial = serial.Serial(port, baud)
+    self.buffer = ''
     super(SerialTransport, self).__init__()
 
   def _send(self, data):
@@ -39,6 +40,9 @@ class SerialTransport(ThreadedTransport):
     self.serial.write(data)
     self.serial.write(END_BYTE)
 
+  def _add_to_receive(self, value):
+    self._receive_queue.put({'data': value})
+
   def _receive(self):
     """
     Receive data sent over transport.
@@ -50,25 +54,24 @@ class SerialTransport(ThreadedTransport):
     if self.serial.inWaiting() > 0:
       value = self.serial.read()
 
-      if len(buffer) > 0 and buffer[0] == START_BYTE:
-        if len(buffer) > 1 and \
-           len(buffer) == DATA_IDX+ord(buffer[LENGTH_IDX]) and \
+      if len(self.buffer) > 0 and self.buffer[0] == START_BYTE:
+        if len(self.buffer) > 1 and \
+           len(self.buffer) == DATA_IDX+ord(self.buffer[LENGTH_IDX]) and \
            value == END_BYTE:
-          self._queue.put(buffer[DATA_IDX:
-                                DATA_IDX+ord(buffer[LENGTH_IDX])])
-          #print hex_debug(buffer)
-          buffer = ''
-        elif len(buffer) > 1 and \
-            len(buffer) > DATA_IDX+ord(buffer[LENGTH_IDX]):
-          buffer = ''
+          self._add_to_receive(self.buffer[DATA_IDX:
+                                DATA_IDX+ord(self.buffer[LENGTH_IDX])])
+          self.buffer = ''
+        elif len(self.buffer) > 1 and \
+            len(self.buffer) > DATA_IDX+ord(self.buffer[LENGTH_IDX]):
+          self.buffer = ''
         else:
-          buffer += value
+          self.buffer += value
       else:
         if '\n' == value:
-          self._queue.put(buffer)
-          buffer = ''
+          self._add_to_receive(self.buffer)
+          self.buffer = ''
         else:
-          buffer += value
+          self.buffer += value
     else:
       return None
   
