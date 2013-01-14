@@ -19,21 +19,17 @@ def enum(*sequential, **named):
   enums = dict(zip(sequential, range(len(sequential))), **named)
   return type('Enum', (), enums)
 
-def get_usb(id_info=None):
+def get_usb(vendor_id, product_id):
   """
     Get the serial port for any device:
-    id_info = 'VID:PID=0403:6001'
+      vendor_id = '403'
+      product_id = '6001'
   """
-  import os
   from serial.tools import list_ports
 
   try:
-
-    if id_info is '': # Empty string should return None
-      return None
-
     for ports in list_ports.comports():
-      if id_info in ports[2]:
+      if vendor_id in ports[2] and product_id in ports[2]:
         return ports[0]
     else:
       return None
