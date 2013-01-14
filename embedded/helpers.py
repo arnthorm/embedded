@@ -19,23 +19,28 @@ def enum(*sequential, **named):
   enums = dict(zip(sequential, range(len(sequential))), **named)
   return type('Enum', (), enums)
 
-def get_usb(vendor_id, product_id):
+def get_usb(vendor_id=None, product_id=None):
   """
-    Get the serial port for any device:
+    Get usb serial port by vendor and product id.
+
+    For example for FTDI device:
       vendor_id = '403'
       product_id = '6001'
   """
   from serial.tools import list_ports
 
-  try:
+  if vendor_id is None and product_id is None:
+    for ports in sorted(list_ports.comports(), key=operator.itemgetter(1))
+      if 'USB' in ports[1] or 'ACM0' in ports[1] or 'COM' in ports[0]:
+        return ports[0]
+  elif vendor_id is not None and product_id is not None:
     for ports in list_ports.comports():
       if vendor_id in ports[2] and product_id in ports[2]:
         return ports[0]
-    else:
-      return None
+  else:
+    raise ValueError('Vendor id and product id must both be set or not.')
+  return None
 
-  except:
-    return None
 
 def get_hex(arr):
   r_value = []
