@@ -89,7 +89,7 @@ class MessageManager(object):
 
   def _process_response(self, response):
     """Processes a response and publishes a message to subscribers."""
-    response = self.response_parser(response)
+    response = self._response_parser(response)
     if response is None:
       return
     message = self.message_parser.parse(response)
