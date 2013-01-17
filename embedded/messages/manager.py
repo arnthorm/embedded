@@ -15,7 +15,7 @@ class MessageManager(object):
     self.message_parser = MessageParser()
     self.transport = transport
     self._response_parser = lambda x: x
-    self._response_maker = lambda x: x
+    self._response_maker = lambda x, y: y
 
   def reset(self):
     """Reset all subscriptions and clear all messages."""
@@ -48,7 +48,7 @@ class MessageManager(object):
                 for the message.
     """
     data = self.message_parser.make(msg_type, kwargs)
-    data = self.response_maker(msg_type, data)
+    data = self._response_maker(msg_type, data)
     self.transport.send(data)
 
   def register_message(self, msg_type, description):

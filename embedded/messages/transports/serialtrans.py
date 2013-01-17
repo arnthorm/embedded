@@ -70,7 +70,8 @@ class SerialTransport(ThreadedTransport):
           self.buffer += value
       else:
         if '\n' == value:
-          self._add_to_receive(self.buffer)
+          print self.buffer
+          #self._add_to_receive(self.buffer)
           self.buffer = ''
         else:
           self.buffer += value
