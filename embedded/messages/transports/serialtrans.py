@@ -13,7 +13,9 @@ __author__ = 'Arnþór Magnússon'
 START_BYTE = '\x7e'
 END_BYTE = '\n'
 LENGTH_IDX = 1
-DATA_IDX = 2
+TYPE_IDX = 2
+DATA_IDX = 3
+HEADER_LENGTH = 2
 
 class SerialTransport(ThreadedTransport):
   """
@@ -24,11 +26,11 @@ class SerialTransport(ThreadedTransport):
   Sends data through self.send(data) and 
   wraps with a frame.
   """
-  def __init__(self, port='/dev/ttyUSB0', baud=57600):
+  def __init__(self, port='/dev/ttyUSB0', baudrate=57600):
     if port is None:
       raise ValueError('No serial port supplied to transport!')
-    self.serial = serial.Serial(port, baud)
-    self.buffer = ''
+    self.serial = serial.Serial(port, baudrate)
+    self.buffer = []
     super(SerialTransport, self).__init__()
 
   def _send(self, data):
@@ -37,13 +39,14 @@ class SerialTransport(ThreadedTransport):
     
     Packs given data into a frame and sends over serial connection.
     """
-    self.serial.write(START_BYTE)
-    self.serial.write(chr(len(data)))
-    self.serial.write(data)
-    self.serial.write(END_BYTE)
+    self._push(START_BYTE)
+    self._push(chr(len(data)+1))
+    print data
+    self._push(data)
+    self._push(END_BYTE)
 
-  def _add_to_receive(self, value):
-    self._receive_queue.put({'data': value})
+  def _push(self, value):
+    self.serial.write(value)
 
   def _receive(self):
     """
@@ -53,31 +56,44 @@ class SerialTransport(ThreadedTransport):
     When a whole package has been received, it is put on a queue buffer
     and is accessible with the "receive" function.
     """
-    if self.serial.inWaiting() > 0:
-      value = self.serial.read()
+    if self._available > 0:
+      self.buffer.append(self._pull())
+
+      if len(self.buffer) > LENGTH_IDX:
+        length = HEADER_LENGTH + ord(self.buffer[LENGTH_IDX])
+      else:
+        length = 0
 
       if len(self.buffer) > 0 and self.buffer[0] == START_BYTE:
-        if len(self.buffer) > 1 and \
-           len(self.buffer) == DATA_IDX+ord(self.buffer[LENGTH_IDX]) and \
-           value == END_BYTE:
-          self._add_to_receive(self.buffer[DATA_IDX:
-                                DATA_IDX+ord(self.buffer[LENGTH_IDX])])
-          self.buffer = ''
-        elif len(self.buffer) > 1 and \
-            len(self.buffer) > DATA_IDX+ord(self.buffer[LENGTH_IDX]):
-          self.buffer = ''
+        if len(self.buffer) == length and self.buffer[-1] == END_BYTE:
+          self._process_buffer()
+          self.buffer = []
+        elif length != 0 and len(self.buffer) >= length:
+          self.buffer = []
         else:
-          self.buffer += value
+          pass
       else:
-        if '\n' == value:
-          print self.buffer
-          #self._add_to_receive(self.buffer)
-          self.buffer = ''
+        if self.buffer[-1] == '\n':
+          self._receive_queue.put({'data': ''.join(self.buffer), 'type': None})
+          self.buffer = []
+        elif self.buffer[-1] == START_BYTE and self.buffer[0] != START_BYTE:
+          self.buffer = [START_BYTE, ]
         else:
-          self.buffer += value
+          pass
     else:
       return None
-  
+
+  def _available(self):
+    return self.serial.inWaiting()
+
+  def _pull(self):
+    return self.serial.read()
+
+  def _process_buffer(self):
+    type = self.buffer[TYPE_IDX]
+    data = ''.join(self.buffer[TYPE_IDX:-1])
+    self._receive_queue.put({'data': data, 'type': type})
+
   def stop(self):
     """Stop receiving data from the serial port by terminating the thread."""
     super(SerialTransport, self).stop()

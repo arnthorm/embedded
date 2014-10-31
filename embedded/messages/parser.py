@@ -83,9 +83,9 @@ class MessageParser(object):
       raise Exception('Message type does not exists!')
     t = self.types[msg_type]
     types = ''.join(t['types'])
-    if t.has_key('has_array') and t['has_array'] and 'length' in t['fields']:
-      data['length'] = len(data[t['fields'][-1]])
-      types = types % data['length']
+    if t.has_key('has_array') and t['has_array']:
+      length = len(data[t['fields'][-1]])
+      types = types % length
     try:
       return struct.pack(
         self.endian + COMMAND_TYPE + types,
